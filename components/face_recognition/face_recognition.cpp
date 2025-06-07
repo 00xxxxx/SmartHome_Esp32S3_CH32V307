@@ -1,3 +1,12 @@
+/**
+ * @file face_recognition.cpp
+ * @brief Implements face detection, enrollment, and recognition functionality.
+ * @details This file sets up the camera, UART, and a GPIO button. It runs two FreeRTOS
+ *          tasks: one to handle the enrollment button and another for the main
+ *          face recognition loop. The recognized face ID or enrollment status is
+ *          communicated over UART.
+ */
+
 // C/C++ and FreeRTOS
 #include <vector>
 #include <string>
@@ -59,15 +68,21 @@ static const char *TAG = "face_rec";
 //                      INTERNAL IMPLEMENTATION
 // ==================================================================
 
-// Global objects for face recognition
+/// Global objects for face detection, feature extraction, and recognition.
 static HumanFaceDetect *g_detector = NULL;
 static HumanFaceFeat *g_feat = NULL;
 static HumanFaceRecognizer *g_recognizer = NULL;
 
-// Volatile flag for enrollment, shared between tasks
+/// Volatile flag to signal the recognition task to start enrollment.
 static volatile uint8_t g_is_enrolling = 0;
 
 // -- Initialization Functions --
+
+/**
+ * @brief Initializes the SPIFFS file system.
+ * @details Mounts the SPIFFS partition labeled "storage". This is used to store
+ *          the enrolled face database.
+ */
 static void spiffs_init()
 {
     ESP_LOGI(TAG, "Initializing SPIFFS...");
@@ -85,6 +100,11 @@ static void spiffs_init()
     }
 }
 
+/**
+ * @brief Initializes the UART interface.
+ * @details Configures UART for sending recognition and enrollment results.
+ *          This component shares the UART with the voice recognition component.
+ */
 static void uart_init()
 {
     // Use C++ zero-initialization to ensure all fields are initialized.
@@ -102,6 +122,11 @@ static void uart_init()
     ESP_LOGI(TAG, "UART initialized.");
 }
 
+/**
+ * @brief Initializes the camera module.
+ * @details Configures the camera with the specified GPIO pins, pixel format,
+ *          frame size, and other parameters.
+ */
 static void camera_init(void) {
     camera_config_t camera_config = {
         .pin_pwdn = CAM_PIN_PWDN, .pin_reset = CAM_PIN_RESET, .pin_xclk = CAM_PIN_XCLK,
@@ -126,6 +151,14 @@ static void camera_init(void) {
 }
 
 // -- RTOS Tasks --
+
+/**
+ * @brief FreeRTOS task to monitor the enrollment button.
+ * @details This task polls a GPIO pin connected to a button. When the button is
+ *          pressed, it sets a global flag to trigger the enrollment process
+ *          in the main recognition task.
+ * @param arg Task arguments (unused).
+ */
 static void enroll_button_task(void *arg) {
     gpio_set_direction(ENROLL_BUTTON_GPIO, GPIO_MODE_INPUT);
     gpio_set_pull_mode(ENROLL_BUTTON_GPIO, GPIO_PULLUP_ONLY);
@@ -144,55 +177,69 @@ static void enroll_button_task(void *arg) {
     }
 }
 
+/**
+ * @brief Main FreeRTOS task for face recognition and enrollment.
+ * @details This task initializes the face detection and recognition models. It then
+ *          enters a loop to continuously capture frames from the camera. If the
+ *          enrollment flag is set, it attempts to enroll a new face. Otherwise,
+ *          it performs face recognition. Results are sent over UART.
+ * @param arg Task arguments (unused).
+ */
 static void face_recognition_task(void *arg) {
-    // Correctly cast integers from Kconfig to the required enum types
-    g_detector = new HumanFaceDetect(static_cast<HumanFaceDetect::model_type_t>(CONFIG_DEFAULT_HUMAN_FACE_DETECT_MODEL));
-    g_feat = new HumanFaceFeat(static_cast<HumanFaceFeat::model_type_t>(CONFIG_DEFAULT_HUMAN_FACE_FEAT_MODEL));
-    
-    // Correctly initialize the recognizer using the constructor with all 4 parameters.
+    // 1. Initialize face detection and recognition models.
+    // The specific models used are determined by Kconfig settings.
+    g_detector = new HumanFaceDetect();
+    g_feat = new HumanFaceFeat();
+    // The face database is stored in SPIFFS.
     char *db_path = (char *)"/spiffs/face_db";
-    float threshold = 0.5f;
-    int top_k = 1;
-    g_recognizer = new HumanFaceRecognizer(g_feat, db_path, threshold, top_k);
+    g_recognizer = new HumanFaceRecognizer(g_feat, db_path, 0.5F, 5);
     
     ESP_LOGI(TAG, "Face recognition task started. Press button on GPIO %d to enroll.", ENROLL_BUTTON_GPIO);
 
+    // 2. Main recognition and enrollment loop
     while (true) {
+        // Capture a frame from the camera
         camera_fb_t *fb = esp_camera_fb_get();
         if (!fb) {
             ESP_LOGE(TAG, "Failed to get camera frame buffer");
             continue;
         }
 
+        // Create a dl_matrix3du_t image object from the frame buffer
         dl::image::img_t img;
         img.width = fb->width;
         img.height = fb->height;
         img.data = fb->buf;
         img.pix_type = dl::image::DL_IMAGE_PIX_TYPE_RGB888;
 
+        // 3. Check if enrollment is requested
         if (g_is_enrolling) {
-            auto result = g_detector->run(img); // Pass by value/reference
+            // Detect face in the frame
+            auto result = g_detector->run(img);
             if(!result.empty()) {
+                // Enroll the detected face
                 int8_t enroll_id = g_recognizer->enroll(img, result);
                  if (enroll_id >= 0) {
                     ESP_LOGI(TAG, "Enrollment successful for ID: %d", enroll_id);
                     char msg[32];
                     sprintf(msg, "ENROLLED:%d\r\n", enroll_id);
                     uart_write_bytes(UART_PORT_NUM, msg, strlen(msg));
-                } else if (enroll_id == -1) {
-                    ESP_LOGE(TAG, "Enrollment failed: Database is full.");
-                } else { // enroll_id == -2
-                    ESP_LOGW(TAG, "Enrollment failed: No face detected or multiple faces.");
+                } else {
+                    ESP_LOGW(TAG, "Enrollment failed.");
                 }
             } else {
                  ESP_LOGW(TAG, "Enrollment failed: No face detected.");
             }
-            g_is_enrolling = 0; // Reset flag after one attempt
+            // Reset the enrollment flag
+            g_is_enrolling = 0;
         } else {
+            // 4. Perform face recognition
+            // Detect face in the frame
             auto result_detect = g_detector->run(img);
-            if (!result_detect.empty()) {
+            if(!result_detect.empty()){
+                // Recognize the detected face
                 auto results_recog = g_recognizer->recognize(img, result_detect);
-                if (!results_recog.empty()) {
+                if (results_recog[0].id > -1) {
                     ESP_LOGI(TAG, "Recognition successful. ID: %d", results_recog[0].id);
                     const char *msg = "ReeSuccess\r\n";
                     uart_write_bytes(UART_PORT_NUM, msg, strlen(msg));
@@ -207,14 +254,20 @@ static void face_recognition_task(void *arg) {
                 uart_write_bytes(UART_PORT_NUM, msg, strlen(msg));
             }
         }
-        esp_camera_fb_return(fb); // IMPORTANT: return the frame buffer
-        vTaskDelay(pdMS_TO_TICKS(100)); // Yield
+        // Return the frame buffer to be reused
+        esp_camera_fb_return(fb); 
+        vTaskDelay(pdMS_TO_TICKS(100)); // Small delay to yield CPU
     }
 }
 
 // ==================================================================
 //                           PUBLIC INTERFACE
 // ==================================================================
+/**
+ * @brief Starts the face recognition functionality.
+ * @details Initializes all necessary subsystems (SPIFFS, UART, Camera) and
+ *          creates the FreeRTOS tasks for button handling and face recognition.
+ */
 void app_facerec_start(void)
 {
     // Initialize all systems first

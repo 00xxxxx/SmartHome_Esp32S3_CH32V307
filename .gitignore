@@ -18,3 +18,22 @@ sdkconfig.old
 # Managed components and dependencies
 /managed_components/
 /dependencies.lock 
+/build/
+
+# IDE generated files
+.vscode/
+.idea/
+*.swp
+*.bak
+
+# Python virtual environment
+venv/
+.env
+
+# Local configuration
+sdkconfig
+sdkconfig.old
+
+# Managed components and dependencies
+/managed_components/
+/dependencies.lock 
