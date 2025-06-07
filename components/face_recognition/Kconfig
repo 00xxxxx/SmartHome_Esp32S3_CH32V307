@@ -1,0 +1,96 @@
+menu "Face Recognition Configuration"
+
+    config DEFAULT_HUMAN_FACE_DETECT_MODEL
+        int "Default human face detection model enum value"
+        default 0
+        help
+            The enum value for the default face detection model. 
+            0 corresponds to MSRMNP_S8_V1.
+
+    config DEFAULT_HUMAN_FACE_FEAT_MODEL
+        int "Default human face feature extraction model enum value"
+        default 0
+        help
+            The enum value for the default face feature model.
+
+    # Configurations moved from esp-face component
+    choice HUMAN_FACE_DETECT_MODEL
+        bool "Human Face Detection Model"
+        default HUMAN_FACE_DETECT_MSRMNP_S8_V1
+        help
+            Select the human face detection model.
+            - MSRMNP_S8_V1 is a general-purpose model.
+
+        config HUMAN_FACE_DETECT_MSRMNP_S8_V1
+            bool "MSRMNP_S8_V1"
+    endchoice
+
+    choice HUMAN_FACE_DETECT_MODEL_STORAGE
+        bool "Storage for Face Detection Model"
+        default HUMAN_FACE_DETECT_MODEL_IN_FLASH_RODATA
+        help
+          Select where the face detection model is stored.
+
+        config HUMAN_FACE_DETECT_MODEL_IN_FLASH_RODATA
+          bool "Store model in flash as read-only data"
+
+        config HUMAN_FACE_DETECT_MODEL_IN_FLASH_PARTITION
+          bool "Store model in a separate flash partition"
+
+        config HUMAN_FACE_DETECT_MODEL_IN_SDCARD
+          bool "Store model on an SD card"
+    endchoice
+
+    config HUMAN_FACE_DETECT_MODEL_SDCARD_DIR
+        string "SD card directory for model"
+        depends on HUMAN_FACE_DETECT_MODEL_IN_SDCARD
+        default "models"
+        help
+          Directory path on the SD card where the model is stored.
+
+    config HUMAN_FACE_DETECT_MODEL_LOCATION
+        int "Face detection model location"
+        default 0
+        help
+            Select face detection model location. 0 for flash, 1 for PSRAM.
+    
+    choice HUMAN_FACE_FEAT_MODEL
+        bool "Human Face Feature Model"
+        default HUMAN_FACE_FEAT_MNV07_V1
+        help
+            Select the human face feature model.
+
+        config HUMAN_FACE_FEAT_MNV07_V1
+            bool "MNV07_V1"
+    endchoice
+
+    choice HUMAN_FACE_FEAT_MODEL_STORAGE
+        bool "Storage for Face Feature Model"
+        default HUMAN_FACE_FEAT_MODEL_IN_FLASH_RODATA
+        help
+          Select where the face feature model is stored.
+
+        config HUMAN_FACE_FEAT_MODEL_IN_FLASH_RODATA
+          bool "Store model in flash as read-only data"
+
+        config HUMAN_FACE_FEAT_MODEL_IN_FLASH_PARTITION
+          bool "Store model in a separate flash partition"
+
+        config HUMAN_FACE_FEAT_MODEL_IN_SDCARD
+          bool "Store model on an SD card"
+    endchoice
+
+    config HUMAN_FACE_FEAT_MODEL_SDCARD_DIR
+        string "SD card directory for feature model"
+        depends on HUMAN_FACE_FEAT_MODEL_IN_SDCARD
+        default "models"
+        help
+          Directory path on the SD card where the model is stored.
+
+    config HUMAN_FACE_FEAT_MODEL_LOCATION
+        int "Face feature model location"
+        default 0
+        help
+            Select face feature model location. 0 for flash, 1 for PSRAM.
+
+endmenu 
