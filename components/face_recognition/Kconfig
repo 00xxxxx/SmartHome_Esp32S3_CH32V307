@@ -1,0 +1,41 @@
+mainmenu "Face Recognition Configuration"
+
+menu "Face Detection Model"
+    choice
+        prompt "Default Face Detection Model"
+        default CONFIG_MFNASNET_MODEL
+        help
+            Select the default model for face detection.
+
+        config CONFIG_MFNASNET_MODEL
+            bool "MFNASNet (Recommended)"
+        
+        config CONFIG_MSR05_MODEL
+            bool "MSR05"
+
+    endchoice
+endmenu
+
+menu "Face Recognition Model"
+    choice
+        prompt "Default Face Recognition Model"
+        default CONFIG_FMN8_MODEL
+        help
+            Select the default model for face recognition feature extraction.
+
+        config CONFIG_FMN8_MODEL
+            bool "FMN8"
+
+    endchoice
+endmenu
+
+# --- Internal ---
+# These are the actual integer values used by the headers, derived from the choices above.
+config DEFAULT_HUMAN_FACE_DETECT_MODEL
+    int
+    default 0 if CONFIG_MFNASNET_MODEL
+    default 1 if CONFIG_MSR05_MODEL
+    
+config DEFAULT_HUMAN_FACE_FEAT_MODEL
+    int
+    default 0 if CONFIG_FMN8_MODEL

@@ -1,0 +1,4 @@
+## Component Manager: An Espressif managed ESP-IDF component
+dependencies:
+  espressif/esp32-camera: "*"
+kconfig: "Kconfig"
