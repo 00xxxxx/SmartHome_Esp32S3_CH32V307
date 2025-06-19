@@ -1,8 +1,9 @@
 # For more information on build system, visit
 # https://docs.espressif.com/projects/esp-idf/en/latest/api-guides/build-system.html
-cmake_minimum_required(VERSION 3.16)
+cmake_minimum_required(VERSION 3.5)
 
-set(EXTRA_COMPONENT_DIRS
+set(EXTRA_COMPONENT_DIRS 
+    components
     components/esp-sr
     components/esp-dl
     components/esp-sr/esp-face/models/human_face_detect

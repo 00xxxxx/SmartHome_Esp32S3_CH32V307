@@ -35,9 +35,9 @@ static const char *TAG = "voice_rec";
 //                          HARDWARE CONFIG
 // ==================================================================
 // I2S for INMP441 Microphone
-#define I2S_BCK_IO          (GPIO_NUM_4)
-#define I2S_WS_IO           (GPIO_NUM_5)
-#define I2S_DATA_IN_IO      (GPIO_NUM_2)
+#define I2S_BCK_IO          (GPIO_NUM_36)
+#define I2S_WS_IO           (GPIO_NUM_37)
+#define I2S_DATA_IN_IO      (GPIO_NUM_35)
 #define I2S_NUM             (I2S_NUM_0)
 #define I2S_SAMPLE_RATE     (16000)
 #define I2S_READ_LEN        (1600 * 2) // 200ms audio buffer
